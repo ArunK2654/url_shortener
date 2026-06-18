@@ -1,0 +1,180 @@
+services:
+
+  app1:
+    build: .
+
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      REDIS_HOST: redis
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ./logs:/logs
+
+  app2:
+    build: .
+
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      REDIS_HOST: redis
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ./logs:/logs
+
+  app3:
+    build: .
+
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/urlshortener
+      REDIS_HOST: redis
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    volumes:
+      - ./logs:/logs
+
+
+  postgres:
+    image: postgres:16
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: urlshortener
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+    ports:
+      - "5432:5432"
+
+
+  redis:
+    image: redis:7
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+    ports:
+      - "6379:6379"
+
+  nginx:
+    image: nginx:latest
+
+    ports:
+      - "80:80"
+
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+    depends_on:
+      - app1
+      - app2
+      - app3
+
+  prometheus:
+    image: prom/prometheus
+
+    container_name: prometheus
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana
+
+    container_name: grafana
+
+    ports:
+      - "3000:3000"
+
+    depends_on:
+      - prometheus
+
+  redis-exporter:
+    image: oliver006/redis_exporter
+
+    ports:
+      - "9121:9121"
+
+    environment:
+      REDIS_ADDR: redis://redis:6379
+
+    depends_on:
+      - redis
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter
+
+    command:
+      - --nginx.scrape-uri=http://nginx/nginx_status
+
+    ports:
+      - "9113:9113"
+
+    depends_on:
+      - nginx
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+
+    ports:
+      - "9200:9200"
+
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200 >/dev/null" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+
+    ports:
+      - "5601:5601"
+
+    depends_on:
+      - elasticsearch
+
+  fluent-bit:
+    image: fluent/fluent-bit:latest
+
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./logs:/logs
+
+    depends_on:
+      - elasticsearch
+
+

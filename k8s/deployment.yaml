@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: url-shortener-fastapi-app
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: url-shortener
+
+  template:
+    metadata:
+      name: url-shortener-fastapi-app-pod
+
+    spec:
+      containers:
+        - name: fastapi
+      image: url-shortener:latest
+
+      imagePullPolicy: Never
+
+      ports:
+        - containerPort: 8000
